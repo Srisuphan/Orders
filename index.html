@@ -274,9 +274,9 @@
   .banner-nav:hover{background:rgba(255,255,255,.5);}
 
   /* SET MODAL */
-  .set-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;align-items:flex-end;justify-content:center;contain:layout;}
+  .set-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;align-items:flex-end;justify-content:center;contain:layout;touch-action:none;}
   .set-ov.show{display:flex;}
-  .set-sheet{background:var(--w);border-radius:20px 20px 0 0;width:100%;max-width:600px;max-height:90vh;display:flex;flex-direction:column;animation:slideUp .25s ease-out;will-change:transform;}
+  .set-sheet{background:var(--w);border-radius:20px 20px 0 0;width:100%;max-width:600px;max-height:90vh;display:flex;flex-direction:column;animation:slideUp .25s ease-out;will-change:transform;touch-action:pan-y;}
   @keyframes slideUp{from{transform:translate3d(0,100%,0)}to{transform:translate3d(0,0,0)}}
   .set-hd{padding:16px 20px 12px;border-bottom:1.5px solid var(--gml);display:flex;align-items:center;gap:12px;flex-shrink:0;}
   .set-hd-color{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
@@ -415,7 +415,7 @@
     <div class="set-hd">
       <div class="set-hd-color" id="setHdColor"></div>
       <div class="set-hd-title" id="setHdTitle"></div>
-      <button class="set-hd-close" onclick="closeSetModal()"><i class="ti ti-x"></i></button>
+      <button class="set-hd-close" onclick="document.getElementById('setOv').classList.remove('show');_curSetIdx=-1;"><i class="ti ti-x" style="font-size:16px">✕</i></button>
     </div>
     <div class="set-body">
       <div class="set-items" id="setItems"></div>
@@ -633,20 +633,30 @@ function openSetModal(idx){
 function closeSetModal(e){
   if(e&&e.target!==document.getElementById('setOv'))return;
   document.getElementById('setOv').classList.remove('show');
+  _curSetIdx=-1;// reset cache เมื่อปิด
 }
 function addSetToCart(){
   if(!_curSet)return;
+  // 1. update cart data ก่อน (เบา ไม่แตะ DOM)
   _curSet.items.forEach(it=>{
     const key=it.name+'||'+it.unit;
     if(!cart[key])cart[key]={qty:0,name:it.name,unit:it.unit,price:it.price};
     cart[key].qty+=it.qty;
   });
-  updBtn();syncQ();
+  // 2. ปิด modal ทันที ให้ user เห็นว่า responsive
   document.getElementById('setOv').classList.remove('show');
-  const t=document.createElement('div');t.className='toast-h';
-  t.innerHTML=`<i class="ti ti-check" style="margin-right:6px"></i>เพิ่มเซ็ต "${_curSet.name}" ลงตะกร้าแล้ว`;
-  document.body.appendChild(t);setTimeout(()=>t.remove(),2500);
-  cartOpen=true;document.getElementById('cartP').classList.add('open');document.getElementById('topbar').classList.add('co');renderMini();
+  updBtn();
+  // 3. update DOM ที่เหลือใน frame ถัดไป ไม่บล็อก UI
+  requestAnimationFrame(()=>{
+    syncQ();
+    cartOpen=true;
+    document.getElementById('cartP').classList.add('open');
+    document.getElementById('topbar').classList.add('co');
+    renderMini();
+    const t=document.createElement('div');t.className='toast-h';
+    t.textContent=`✓ เพิ่มเซ็ต "${_curSet.name}" ลงตะกร้าแล้ว`;
+    document.body.appendChild(t);setTimeout(()=>t.remove(),2500);
+  });
 }
 function openLB(src){document.getElementById('lbImg').src=src;document.getElementById('lbOv').classList.add('show');}
 function closeLB(){document.getElementById('lbOv').classList.remove('show');}
@@ -971,11 +981,15 @@ function chQ(idx,d){
 }
 
 function syncQ(){
-  _pIdx.forEach((p,idx)=>{
-    if(!p)return;
-    const key=p.name+'||'+p.unit;
-    const qty=cart[key]?cart[key].qty:0;
-    document.querySelectorAll(`[data-qn="${idx}"]`).forEach(el=>{el.textContent=qty;});
+  // อัปเดตเฉพาะสินค้าที่อยู่ในตะกร้า ไม่ต้อง loop ทั้งหมด
+  // reset ทุก data-qn เป็น 0 ก่อน แล้วค่อย set เฉพาะที่มีในตะกร้า
+  document.querySelectorAll('[data-qn]').forEach(el=>{el.textContent=0;});
+  Object.entries(cart).forEach(([key,v])=>{
+    _pIdx.forEach((p,idx)=>{
+      if(p&&p.name+'||'+p.unit===key){
+        document.querySelectorAll(`[data-qn="${idx}"]`).forEach(el=>{el.textContent=v.qty;});
+      }
+    });
   });
 }
 
