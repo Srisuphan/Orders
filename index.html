@@ -645,6 +645,9 @@ function addSetToCart(){
 function openLB(src){document.getElementById('lbImg').src=src;document.getElementById('lbOv').classList.add('show');}
 function closeLB(){document.getElementById('lbOv').classList.remove('show');}
 
+// ===== Global State =====
+let cart={},user="",prof={},cartOpen=false,selC=null,selS=null,openC={};
+
 const gT=()=>Object.values(cart).reduce((s,i)=>s+i.qty*i.price,0);
 const gN=()=>Object.values(cart).reduce((s,i)=>s+i.qty,0);
 const sk=k=>k.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
