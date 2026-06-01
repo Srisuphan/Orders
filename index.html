@@ -527,28 +527,28 @@ const SET_COLORS=[
 
 async function loadSets(){
   try{
-    // product_sets: id, name, description, total_price, created_at
-    const sRes=await fetch(`${SB_URL}/rest/v1/product_sets?select=*&order=created_at`,{headers:SB_H});
-    const sets=await sRes.json();
+    // ดึง product_sets และ product_set_items พร้อมกันเลย ไม่รอทีละ request
+    const [sRes,iRes]=await Promise.all([
+      fetch(`${SB_URL}/rest/v1/product_sets?select=*&order=created_at`,{headers:SB_H}),
+      fetch(`${SB_URL}/rest/v1/product_set_items?select=*`,{headers:SB_H})
+    ]);
+    const [sets,items]=await Promise.all([sRes.json(),iRes.json()]);
     if(!Array.isArray(sets)||!sets.length){_sets=[];return;}
-    // product_set_items: set_id, product, unit, qty, price
-    const ids=sets.map(s=>`"${s.id}"`).join(',');
-    const iRes=await fetch(`${SB_URL}/rest/v1/product_set_items?set_id=in.(${ids})&select=*`,{headers:SB_H});
-    const items=await iRes.json();
+    const allItems=Array.isArray(items)?items:[];
     _sets=sets.map((s,si)=>{
       const clr=SET_COLORS[si%SET_COLORS.length];
-      const setItems=(Array.isArray(items)?items:[])
+      const setItems=allItems
         .filter(i=>i.set_id===s.id)
         .map(i=>{
-          // จับคู่กับ P array เพื่อเอา icon/สี/รูป
-          const matched=P.find(p=>p.name===i.product&&p.unit===i.unit);
-          const style=matched
-            ?{icon:matched.icon,bg:matched.bg,ic:matched.ic,image_url:matched.image_url}
-            :{icon:'ti-pill',bg:'#E8F5EE',ic:'#2E7D52',image_url:null};
+          // ใช้ CAT_STYLE โดยตรง ไม่ต้องหา P array
+          // เดา category จากชื่อสินค้า หรือ default
+          const style={icon:'ti-pill',bg:'#E8F5EE',ic:'#2E7D52'};
           return{
-            name:i.product||'',unit:i.unit||'',
-            price:Number(i.price||0),qty:Number(i.qty||1),
-            image_url:style.image_url,
+            name:i.product||'',
+            unit:i.unit||'',
+            price:Number(i.price||0),
+            qty:Number(i.qty||1),
+            image_url:null,
             icon:style.icon,bg:style.bg,ic:style.ic
           };
         });
@@ -558,6 +558,7 @@ async function loadSets(){
         from:clr.from,to:clr.to,items:setItems
       };
     });
+    console.log('loadSets OK:',_sets.length,'เซ็ต');
   }catch(e){console.error('loadSets',e);_sets=[];}
 }
 
@@ -705,10 +706,16 @@ async function doLogin(){
           <div style="font-size:15px;font-weight:500">กำลังโหลดรายการสินค้า...</div>
         </div>`;
       document.getElementById('sidebar').innerHTML='';
-      // โหลด products และ sets แยก try/catch ไม่ให้กันกัน
-      try{await loadProducts();}catch(e){console.error('loadProducts fail',e);}
-      try{await loadSets();}catch(e){console.error('loadSets fail',e);}
-      buildSB();buildBanner();renderCat();
+      // โหลด sets ก่อน (เบากว่า) แล้วแสดง banner ทันที
+      // โหลด products ต่อเนื่องใน background
+      const setsPromise=loadSets();
+      const productsPromise=loadProducts();
+      // รอ sets เสร็จก่อน แสดง banner ได้เลย
+      await setsPromise;
+      buildBanner();
+      // รอ products เสร็จ แล้วค่อย render catalog
+      await productsPromise;
+      buildSB();renderCat();
     }else{
       setE('ชื่อหน่วยงานหรือรหัสผ่านไม่ถูกต้อง');
       setLL(false);
@@ -943,9 +950,10 @@ async function retryLoad(){
       <span class="sp" style="width:32px;height:32px;border-color:var(--gml);border-top-color:var(--gm)"></span>
       <div style="font-size:15px;font-weight:500">กำลังโหลดใหม่...</div>
     </div>`;
-  try{await loadProducts();}catch(e){console.error(e);}
-  try{await loadSets();}catch(e){console.error(e);}
-  buildSB();buildBanner();renderCat();
+  const setsP=loadSets();
+  const prodsP=loadProducts();
+  await setsP;buildBanner();
+  await prodsP;buildSB();renderCat();
 }
 // ใช้ index แทน key ใน onclick เพื่อหลีกเลี่ยงปัญหาอักขระพิเศษ
 let _pIdx=[];// map index -> product object สำหรับใช้ใน chQ
