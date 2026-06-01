@@ -607,7 +607,7 @@ function openSetModal(idx){
   document.getElementById('setTotalVal').textContent='฿'+total.toLocaleString('th-TH',{minimumFractionDigits:2});
   document.getElementById('setItems').innerHTML=_curSet.items.map(it=>{
     const media=it.image_url
-      ?`<img class="set-item-img" src="${it.image_url}" alt="${it.name}" data-lbsrc="${it.image_url}" onerror="this.style.display='none'">`
+      ?`<img class="set-item-img" src="${it.image_url}" alt="${it.name}" data-lbsrc="${it.image_url}" loading="lazy" decoding="async" onerror="this.style.display='none'">`
       :`<div class="set-item-icon" style="background:${it.bg}"><i class="ti ${it.icon}" style="font-size:22px;color:${it.ic}"></i></div>`;
     return `<div class="set-item">${media}
       <div class="set-item-info">
@@ -615,7 +615,7 @@ function openSetModal(idx){
         <div class="set-item-unit">${it.unit}</div>
         <div class="set-item-qty">จำนวน ${it.qty} ${it.unit}</div>
       </div>
-      <div style="text-align:right">
+      <div style="text-align:right;flex-shrink:0">
         <div class="set-item-price">฿${it.price.toLocaleString()}</div>
         <div style="font-size:11px;color:var(--tl)">/ ${it.unit}</div>
       </div></div>`;
@@ -988,18 +988,23 @@ function renderMini(){
     document.getElementById('cTotal').textContent='฿0';return;
   }
   el.innerHTML=its.map(([k,v],i)=>`<div class="cit">
-    <div class="ct"><div class="cif"><div class="cn">${v.name}</div><div class="cu">${v.unit} · ฿${v.price}/หน่วย</div></div>
-    <button class="cd" data-rm="${i}"><i class="ti ti-trash"></i></button></div>
+    <div class="ct">
+      <div class="cif"><div class="cn">${v.name}</div><div class="cu">${v.unit} · ฿${v.price.toLocaleString()}/หน่วย</div></div>
+    </div>
     <div class="cbot">
       <div class="mq">
         <button class="mqb" data-mq="${i}" data-d="-1">−</button>
         <div class="mqn" data-mqn="${i}">${v.qty}</div>
         <button class="mqb pl" data-mq="${i}" data-d="1">+</button>
       </div>
-      <div class="cpr">฿${(v.qty*v.price).toLocaleString()}</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="cpr">฿${(v.qty*v.price).toLocaleString()}</div>
+        <button class="cd" data-rm="${i}" style="width:32px;height:32px;border-radius:8px;background:#fdecea;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>
+        </button>
+      </div>
     </div></div>`).join('');
   document.getElementById('cTotal').textContent='฿'+gT().toLocaleString();
-  // delegate
   el.onclick=function(e){
     const btnMQ=e.target.closest('[data-mq]');
     if(btnMQ){
@@ -1030,22 +1035,22 @@ function renderRV(){
     body.innerHTML='<div class="rem"><i class="ti ti-shopping-cart-off"></i>ยังไม่มีสินค้าในตะกร้า</div>';
     foot.innerHTML='';return;
   }
-  body.innerHTML=`<div class="rhr">
-    <span>รายการสินค้า</span><span>ราคา/หน่วย</span><span>จำนวน</span><span>รวม</span><span></span>
-  </div>`+
-  its.map(([k,v],i)=>`<div class="rrw" data-rk="${i}">
-    <div><div class="rn">${v.name}</div><div class="rs">${v.unit}</div></div>
-    <div class="rup">฿${v.price.toLocaleString()}</div>
+  body.innerHTML=its.map(([k,v],i)=>`<div class="rrw" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1.5px solid var(--gml);">
+    <div style="flex:1;min-width:0">
+      <div class="rn">${v.name}</div>
+      <div class="rs">${v.unit} · ฿${v.price.toLocaleString()}/หน่วย</div>
+    </div>
     <div class="rqc">
       <button class="rqb" data-rv="${i}" data-d="-1">−</button>
       <div class="rqn" data-rvn="${i}">${v.qty}</div>
       <button class="rqb pl" data-rv="${i}" data-d="1">+</button>
     </div>
-    <div class="rtp" data-rvp="${i}">฿${(v.qty*v.price).toLocaleString()}</div>
-    <button class="rdl" data-rvdel="${i}"><i class="ti ti-trash"></i></button>
+    <div class="rtp" data-rvp="${i}" style="min-width:64px;text-align:right">฿${(v.qty*v.price).toLocaleString()}</div>
+    <button class="rdl" data-rvdel="${i}" style="width:36px;height:36px;border-radius:8px;background:#fdecea;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+      <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>
+    </button>
   </div>`).join('');
   renderRF();
-  // delegate event สำหรับ review page
   body.onclick=function(e){
     const btnQ=e.target.closest('[data-rv]');
     if(btnQ){
