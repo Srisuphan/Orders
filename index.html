@@ -107,14 +107,14 @@
   .sbt{font-size:22.5px;font-weight:700;color:var(--gd);}
   .sbc{font-size:18px;color:var(--tl);margin-left:auto;background:var(--w);padding:2px 8px;border-radius:20px;border:1px solid var(--b);}
   .pg{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px;}
-  .pc{background:var(--w);border:2px solid var(--gml);border-radius:14px;padding:1rem;display:flex;flex-direction:column;gap:6px;transition:border-color .2s,box-shadow .2s;}
+  .pc{background:var(--w);border:2px solid var(--gml);border-radius:14px;padding:.75rem;display:flex;flex-direction:column;gap:0;transition:border-color .2s,box-shadow .2s;}
   .pc:hover{border-color:var(--gm);box-shadow:0 4px 16px rgba(76,175,125,.15);}
-  .pi{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;}
-  .pn{font-size:19.5px;font-weight:700;color:var(--td);line-height:1.4;}
-  .pu{font-size:18px;color:var(--tl);font-weight:500;}
-  .pp{font-size:24px;font-weight:700;color:var(--gd);}
+  .pi{width:100%;aspect-ratio:1/1;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:8px;flex-shrink:0;}
+  .pn{font-size:19.5px;font-weight:700;color:var(--td);line-height:1.3;margin-bottom:4px;}
+  .pu{font-size:18px;color:var(--tl);font-weight:500;margin-top:auto;}
+  .pp{font-size:24px;font-weight:700;color:var(--gd);margin-top:4px;}
   .pp span{font-size:18px;color:var(--tl);font-weight:500;}
-  .qr{display:flex;align-items:center;margin-top:auto;padding-top:6px;}
+  .qr{display:flex;align-items:center;margin-top:8px;padding-top:8px;border-top:1px solid var(--gml);}
   .qb{width:30px;height:30px;border:2px solid var(--b);background:var(--gp);color:var(--td);font-size:27px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700;}
   .qb:first-child{border-radius:8px 0 0 8px;}
   .qb:last-child{border-radius:0 8px 8px 0;}
@@ -738,6 +738,12 @@ function toggleUM(){document.getElementById('uMenu').classList.toggle('open');}
 document.addEventListener('click',e=>{const m=document.getElementById('uMenu');if(m&&!m.contains(e.target))m.classList.remove('open');});
 
 // LOGIN
+// ===== SESSION =====
+const SESSION_KEY='pharma_sess';
+function saveSession(){try{sessionStorage.setItem(SESSION_KEY,JSON.stringify({user,prof}));}catch(e){}}
+function loadSession(){try{const s=sessionStorage.getItem(SESSION_KEY);return s?JSON.parse(s):null;}catch(e){return null;}}
+function clearSession(){try{sessionStorage.removeItem(SESSION_KEY);}catch(e){}}
+
 async function doLogin(){
   const ag=document.getElementById('aIn').value.trim();
   const pw=document.getElementById('pIn').value;
@@ -756,27 +762,9 @@ async function doLogin(){
       const d=data[0];
       user=d.agency;
       prof={contact:d.contact||'',phone:d.phone||'',tax_id:d.tax_id||'',address:d.address||''};
-      document.getElementById('uLbl').textContent=user;
-      document.getElementById('dAg').textContent=user;
+      saveSession();
       setLL(false);
-      showPage('pgC');
-      // แสดง loading
-      document.getElementById('catContent').innerHTML=`
-        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 2rem;gap:1rem;color:var(--tl);">
-          <span class="sp" style="width:32px;height:32px;border-color:var(--gml);border-top-color:var(--gm)"></span>
-          <div style="font-size:15px;font-weight:500">กำลังโหลดรายการสินค้า...</div>
-        </div>`;
-      document.getElementById('sidebar').innerHTML='';
-      // โหลด sets ก่อน (เบากว่า) แล้วแสดง banner ทันที
-      // โหลด products ต่อเนื่องใน background
-      const setsPromise=loadSets();
-      const productsPromise=loadProducts();
-      // รอ sets เสร็จก่อน แสดง banner ได้เลย
-      await setsPromise;
-      buildBanner();buildSB();// แสดงเซ็ตใน sidebar ทันที
-      // รอ products เสร็จ แล้วค่อย render catalog
-      await productsPromise;
-      buildSB();renderCat();
+      await enterApp();
     }else{
       setE('ชื่อหน่วยงานหรือรหัสผ่านไม่ถูกต้อง');
       setLL(false);
@@ -786,6 +774,24 @@ async function doLogin(){
     setE('เชื่อมต่อไม่ได้ กรุณาลองใหม่');
     setLL(false);
   }
+}
+
+async function enterApp(){
+  document.getElementById('uLbl').textContent=user;
+  document.getElementById('dAg').textContent=user;
+  showPage('pgC');
+  document.getElementById('catContent').innerHTML=`
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 2rem;gap:1rem;color:var(--tl);">
+      <span class="sp" style="width:32px;height:32px;border-color:var(--gml);border-top-color:var(--gm)"></span>
+      <div style="font-size:22px;font-weight:500">กำลังโหลดรายการสินค้า...</div>
+    </div>`;
+  document.getElementById('sidebar').innerHTML='';
+  const setsPromise=loadSets();
+  const productsPromise=loadProducts();
+  await setsPromise;
+  buildBanner();buildSB();
+  await productsPromise;
+  buildSB();renderCat();
 }
 function setE(m){const e=document.getElementById('eMsg');e.textContent=m;e.style.display='block';}
 function setLL(on){
@@ -797,7 +803,8 @@ document.getElementById('pIn').addEventListener('keydown',e=>{if(e.key==='Enter'
 document.getElementById('aIn').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 
 function doLogout(){
-  cart={};selC=null;selS=null;user='';prof={};cartOpen=false;openC={};
+  clearSession();
+  cart={};selC=null;selS=null;user='';prof={};cartOpen=false;openC={};selSet=null;
   ['aIn','pIn'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('eMsg').style.display='none';
   document.getElementById('cartP').classList.remove('open');
@@ -1033,14 +1040,20 @@ function cH(p,idx){
   const qty=cart[key]?cart[key].qty:0;
   _pIdx[idx]=p;
   const media=p.image_url
-    ?`<img src="${p.image_url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;" loading="lazy" onerror="this.style.display='none';this.nextSibling.style.display='flex'">`
+    ?`<img src="${p.image_url}" loading="lazy" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.nextSibling.style.display='flex'">`
     :'';
-  const iconEl=`<i class="ti ${p.icon}" style="font-size:18px;color:${p.ic};${p.image_url?'display:none':''}"></i>`;
-  return `<div class="pc" style="cursor:pointer" onclick="openPD(${idx})">
-    <div class="pi" style="background:${p.bg};overflow:hidden">${media}${iconEl}</div>
-    <div class="pn">${p.name}</div><div class="pu">${p.unit}</div>
+  const iconEl=`<span style="font-size:42px;${p.image_url?'display:none':''}">${
+    {'ti-pill':'💊','ti-lungs':'🤧','ti-stethoscope':'🩺','ti-shield-check':'🛡️',
+     'ti-bottle':'🧴','ti-flask':'⚗️','ti-droplet':'💧','ti-band-aid':'🩹',
+     'ti-eye':'👁️','ti-roll':'🧻','ti-mask':'😷','ti-hand-stop':'🧤',
+     'ti-circle':'🔵','ti-first-aid-kit':'🏥'}[p.icon]||'💊'
+  }</span>`;
+  return `<div class="pc" data-open="${idx}" style="cursor:pointer">
+    <div class="pi" style="background:${p.bg};">${media}${iconEl}</div>
+    <div class="pn">${p.name}</div>
+    <div class="pu">${p.unit}</div>
     <div class="pp">฿${p.price.toLocaleString()} <span>/ ${p.unit}</span></div>
-    <div class="qr" onclick="event.stopPropagation()">
+    <div class="qr">
       <button class="qb" data-pi="${idx}" data-d="-1">−</button>
       <div class="qn" data-qn="${idx}">${qty}</div>
       <button class="qb pl" data-pi="${idx}" data-d="1">+</button>
@@ -1138,10 +1151,19 @@ function syncQ(){
   });
 }
 
-// delegate click สำหรับปุ่ม +/− ในหน้าสินค้า
-document.addEventListener('click',function(e){
-  const btn=e.target.closest('[data-pi]');
-  if(btn&&btn.dataset.d){chQ(Number(btn.dataset.pi),Number(btn.dataset.d));}
+// delegate ทั้ง +/− และกดเปิด popup ผ่าน pgC
+document.getElementById('pgC').addEventListener('click',function(e){
+  // ปุ่ม +/− มี data-pi และ data-d
+  const btn=e.target.closest('[data-pi][data-d]');
+  if(btn){
+    chQ(Number(btn.dataset.pi),Number(btn.dataset.d));
+    return;// หยุด ไม่ bubble ต่อ
+  }
+  // กดที่ card (data-open) เปิด popup
+  const card=e.target.closest('[data-open]');
+  if(card){
+    openPD(Number(card.dataset.open));
+  }
 });
 
 // CART
@@ -1303,4 +1325,13 @@ async function submitOrder(){
 }
 function afterOrd(){closeOv();cartOpen=false;document.getElementById('cartP').classList.remove('open');document.getElementById('topbar').classList.remove('co');showPage('pgC');syncQ();}
 function closeOv(){document.getElementById('overlay').classList.remove('show');}
+// ===== AUTO-RESTORE SESSION (F5) =====
+(async()=>{
+  const sess=loadSession();
+  if(sess&&sess.user){
+    user=sess.user;
+    prof=sess.prof||{};
+    await enterApp();
+  }
+})();
 </script>
