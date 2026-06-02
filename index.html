@@ -171,6 +171,13 @@
   .pfi:focus{border-color:var(--gm);box-shadow:0 0 0 3px rgba(76,175,125,.12);}
   .pfi::placeholder{color:var(--tl);}
   .pfi:disabled{opacity:.7;cursor:not-allowed;background:#f5f5f5;}
+  .branch-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .branch-opt{display:flex;align-items:center;gap:8px;padding:12px 16px;border:2px solid var(--gml);border-radius:12px;cursor:pointer;flex:1;min-width:120px;font-size:17px;font-weight:600;color:var(--tm);transition:all .15s;-webkit-tap-highlight-color:transparent;user-select:none;}
+  .branch-opt:hover{border-color:var(--gm);background:var(--gl);}
+  .branch-opt.selected{border-color:var(--gm);background:var(--gl);color:var(--gd);}
+  .branch-radio{width:20px;height:20px;border-radius:50%;border:2px solid var(--b);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;}
+  .branch-opt.selected .branch-radio{border-color:var(--gm);background:var(--gm);}
+  .branch-opt.selected .branch-radio::after{content:'';width:8px;height:8px;border-radius:50%;background:#fff;display:block;}
   .pf{padding:1.25rem 1.5rem;border-top:2px solid var(--gml);background:var(--w);flex-shrink:0;display:flex;align-items:center;gap:12px;}
   .bsv{flex:1;padding:13px;background:var(--gm);color:#fff;border:none;border-radius:12px;font-size:24px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;font-family:'Sarabun',sans-serif;transition:background .2s;}
   .bsv:hover:not(:disabled){background:var(--gd);}
@@ -408,6 +415,21 @@
         <div class="pfg"><label class="pfl">ชื่อผู้ติดต่อ <span class="req">*</span></label><input class="pfi" id="pCt" type="text" placeholder="ชื่อ-นามสกุล"/></div>
         <div class="pfg"><label class="pfl">เบอร์โทรติดต่อ <span class="req">*</span></label><input class="pfi" id="pPh" type="tel" placeholder="0XX-XXX-XXXX"/></div>
         <div class="pfg full"><label class="pfl">เลขประจำตัวผู้เสียภาษี</label><input class="pfi" id="pTx" type="text" placeholder="13 หลัก" maxlength="13"/></div>
+        <div class="pfg full">
+          <label class="pfl">ประเภทสำนักงาน <span class="req">*</span></label>
+          <div class="branch-row">
+            <div class="branch-opt" id="optHQ" onclick="selectBranch('HQ')">
+              <div class="branch-radio"></div>🏢 สำนักงานใหญ่
+            </div>
+            <div class="branch-opt" id="optBR" onclick="selectBranch('BR')">
+              <div class="branch-radio"></div>🏪 สาขา
+            </div>
+          </div>
+        </div>
+        <div class="pfg full" id="branchNumWrap" style="display:none">
+          <label class="pfl">เลขที่สาขา <span class="req">*</span></label>
+          <input class="pfi" id="pBn" type="text" placeholder="เช่น 00001" maxlength="5" oninput="this.value=this.value.replace(/[^0-9]/g,'')"/>
+        </div>
       </div>
     </div>
     <div class="pcard">
@@ -557,11 +579,22 @@ async function loadProducts(){
         image_url:r['image_url']||null
       };
     });
+    // เรียงตัวอักษรไทยก่อนอังกฤษ
+    const thaiSort=(a,b)=>{
+      const isThaiA=/^[\u0E00-\u0E7F]/.test(a);
+      const isThaiB=/^[\u0E00-\u0E7F]/.test(b);
+      if(isThaiA&&!isThaiB)return -1;
+      if(!isThaiA&&isThaiB)return 1;
+      return a.localeCompare(b,'th');
+    };
+    P.sort((a,b)=>thaiSort(a.name,b.name));
     TR={};
     P.forEach(p=>{
       if(!TR[p.cat])TR[p.cat]=[];
       if(p.sub&&!TR[p.cat].includes(p.sub))TR[p.cat].push(p.sub);
     });
+    // เรียงหมวดย่อยแต่ละหมวด
+    Object.keys(TR).forEach(cat=>{TR[cat].sort(thaiSort);});
     CATS=Object.keys(TR);
     console.log('loadProducts OK:',P.length,'รายการ');
   }catch(e){
@@ -582,7 +615,7 @@ async function loadSets(){
   try{
     // ดึง product_sets และ product_set_items พร้อมกันเลย ไม่รอทีละ request
     const [sRes,iRes]=await Promise.all([
-      fetch(`${SB_URL}/rest/v1/product_sets?select=*&order=created_at`,{headers:SB_H}),
+      fetch(`${SB_URL}/rest/v1/product_sets?select=*&order=total_price.asc`,{headers:SB_H}),
       fetch(`${SB_URL}/rest/v1/product_set_items?select=*`,{headers:SB_H})
     ]);
     const [sets,items]=await Promise.all([sRes.json(),iRes.json()]);
@@ -593,16 +626,11 @@ async function loadSets(){
       const setItems=allItems
         .filter(i=>i.set_id===s.id)
         .map(i=>{
-          // ใช้ CAT_STYLE โดยตรง ไม่ต้องหา P array
-          // เดา category จากชื่อสินค้า หรือ default
           const style={icon:'ti-pill',bg:'#E8F5EE',ic:'#2E7D52'};
           return{
-            name:i.product||'',
-            unit:i.unit||'',
-            price:Number(i.price||0),
-            qty:Number(i.qty||1),
-            image_url:null,
-            icon:style.icon,bg:style.bg,ic:style.ic
+            name:i.product||'',unit:i.unit||'',
+            price:Number(i.price||0),qty:Number(i.qty||1),
+            image_url:null,icon:style.icon,bg:style.bg,ic:style.ic
           };
         });
       return{
@@ -611,6 +639,10 @@ async function loadSets(){
         from:clr.from,to:clr.to,items:setItems
       };
     });
+    // เรียงตาม total_price น้อยไปมาก (รองรับ Supabase ที่อาจส่งมาไม่ครบ)
+    _sets.sort((a,b)=>a.total_price-b.total_price);
+    // อัปเดตสีตาม index ใหม่หลังเรียง
+    _sets.forEach((s,i)=>{const clr=SET_COLORS[i%SET_COLORS.length];s.from=clr.from;s.to=clr.to;});
     console.log('loadSets OK:',_sets.length,'เซ็ต');
   }catch(e){console.error('loadSets',e);_sets=[];}
 }
@@ -761,7 +793,7 @@ async function doLogin(){
     if(data.length>0){
       const d=data[0];
       user=d.agency;
-      prof={contact:d.contact||'',phone:d.phone||'',tax_id:d.tax_id||'',address:d.address||''};
+      prof={contact:d.contact||'',phone:d.phone||'',tax_id:d.tax_id||'',address:d.address||'',branch_type:d.branch_type||'HQ',branch_num:d.branch_num||''};
       saveSession();
       setLL(false);
       await enterApp();
@@ -914,9 +946,15 @@ function reorder(ref){
 }
 
 // PROFILE
+function selectBranch(type){
+  document.getElementById('optHQ').classList.toggle('selected',type==='HQ');
+  document.getElementById('optBR').classList.toggle('selected',type==='BR');
+  document.getElementById('branchNumWrap').style.display=type==='BR'?'block':'none';
+  if(type==='HQ')document.getElementById('pBn').value='';
+}
+
 function goProfile(){
   document.getElementById('uMenu').classList.remove('open');
-  // รองรับทั้งแบบเก่า (คั่น |) และแบบใหม่ (คั่นช่องว่าง)
   const addr=prof.address||'';
   const pts=addr.includes('|')?addr.split('|'):addr.split(/\s{2,}/);
   document.getElementById('pAg').value=user;
@@ -928,6 +966,11 @@ function goProfile(){
   document.getElementById('pDt').value=pts[2]||'';
   document.getElementById('pPv').value=pts[3]||'';
   document.getElementById('pZp').value=pts[4]||'';
+  // โหลด branch type จาก prof
+  const btype=prof.branch_type||'HQ';
+  const bnum=prof.branch_num||'';
+  selectBranch(btype);
+  if(btype==='BR')document.getElementById('pBn').value=bnum;
   const sm=document.getElementById('sMsg');sm.className='sm';sm.style.display='none';
   showPage('pgP');
 }
@@ -936,21 +979,29 @@ async function saveProfile(){
   const contact=document.getElementById('pCt').value.trim();
   const phone=document.getElementById('pPh').value.trim();
   const tax_id=document.getElementById('pTx').value.trim();
-  // บันทึกที่อยู่คั่นด้วยช่องว่าง 2 ช่อง เพื่อแยก field ได้ภายหลัง
   const address=['pA1','pSd','pDt','pPv','pZp'].map(id=>document.getElementById(id).value.trim()).filter(Boolean).join('  ');
+  // branch
+  const isBR=document.getElementById('optBR').classList.contains('selected');
+  const branch_type=isBR?'BR':'HQ';
+  const branch_num=isBR?(document.getElementById('pBn').value.trim()||'00000'):'';
+  if(isBR&&!document.getElementById('pBn').value.trim()){
+    const sm=document.getElementById('sMsg');
+    sm.className='sm err';sm.innerHTML='⚠️ กรุณากรอกเลขที่สาขา';sm.style.display='flex';return;
+  }
   const btn=document.getElementById('sBtn');const sm=document.getElementById('sMsg');
   btn.disabled=true;btn.innerHTML='<span class="sp"></span> กำลังบันทึก...';sm.style.display='none';
   try{
     const res=await fetch(
       `${SB_URL}/rest/v1/agencies?agency=eq.${encodeURIComponent(user)}`,
-      {method:'PATCH',headers:{...SB_H,'Prefer':'return=minimal'},body:JSON.stringify({contact,phone,tax_id,address})}
+      {method:'PATCH',headers:{...SB_H,'Prefer':'return=minimal'},body:JSON.stringify({contact,phone,tax_id,address,branch_type,branch_num})}
     );
     if(res.ok){
-      prof={contact,phone,tax_id,address};
-      sm.className='sm ok';sm.innerHTML='<i class="ti ti-circle-check"></i> บันทึกเรียบร้อยแล้ว';
-    }else{sm.className='sm err';sm.innerHTML='<i class="ti ti-alert-circle"></i> บันทึกไม่สำเร็จ';}
-  }catch{sm.className='sm err';sm.innerHTML='<i class="ti ti-alert-circle"></i> เชื่อมต่อไม่ได้';}
-  btn.disabled=false;btn.innerHTML='<i class="ti ti-device-floppy"></i> บันทึกข้อมูล';
+      prof={contact,phone,tax_id,address,branch_type,branch_num};
+      saveSession();
+      sm.className='sm ok';sm.innerHTML='✅ บันทึกเรียบร้อยแล้ว';sm.style.display='flex';
+    }else{sm.className='sm err';sm.innerHTML='❌ บันทึกไม่สำเร็จ';sm.style.display='flex';}
+  }catch{sm.className='sm err';sm.innerHTML='❌ เชื่อมต่อไม่ได้';sm.style.display='flex';}
+  btn.disabled=false;btn.innerHTML='💾 บันทึกข้อมูล';
 }
 
 // SIDEBAR
