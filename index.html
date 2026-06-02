@@ -311,6 +311,31 @@
   .lb-img{max-width:92vw;max-height:85vh;border-radius:12px;object-fit:contain;}
   .lb-close{position:absolute;top:16px;right:16px;background:rgba(255,255,255,.2);border:none;border-radius:50%;width:40px;height:40px;color:#fff;font-size:33px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
   .lb-close:hover{background:rgba(255,255,255,.35);}
+  /* PRODUCT DETAIL POPUP */
+  .pd-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:80;align-items:center;justify-content:center;touch-action:none;padding:1rem;}
+  .pd-ov.show{display:flex;}
+  .pd-sheet{background:var(--w);border-radius:20px;width:100%;max-width:420px;max-height:88vh;display:flex;flex-direction:column;animation:popIn .2s ease-out;will-change:transform;}
+  @keyframes popIn{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
+  .pd-img-wrap{width:100%;aspect-ratio:1/1;max-height:260px;background:var(--gp);display:flex;align-items:center;justify-content:center;border-radius:20px 20px 0 0;overflow:hidden;flex-shrink:0;position:relative;}
+  .pd-img-wrap img{width:100%;height:100%;object-fit:cover;cursor:zoom-in;}
+  .pd-no-img{display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:80px;}
+  .pd-close{position:absolute;top:12px;right:12px;width:36px;height:36px;background:rgba(0,0,0,.35);border:none;border-radius:50%;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;}
+  .pd-body{padding:1.25rem 1.25rem .5rem;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+  .pd-name{font-size:22px;font-weight:700;color:var(--td);line-height:1.35;margin-bottom:4px;}
+  .pd-unit{font-size:16px;color:var(--tl);font-weight:500;margin-bottom:12px;}
+  .pd-price{font-size:28px;font-weight:700;color:var(--gd);margin-bottom:16px;}
+  .pd-price span{font-size:16px;color:var(--tl);font-weight:500;}
+  .pd-foot{padding:1rem 1.25rem 1.5rem;border-top:1.5px solid var(--gml);display:flex;align-items:center;gap:12px;flex-shrink:0;background:var(--w);}
+  .pd-qr{display:flex;align-items:center;flex-shrink:0;}
+  .pd-qb{width:44px;height:44px;border:2px solid var(--b);background:var(--gp);color:var(--td);font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700;-webkit-tap-highlight-color:transparent;}
+  .pd-qb:first-child{border-radius:10px 0 0 10px;}
+  .pd-qb:last-child{border-radius:0 10px 10px 0;}
+  .pd-qb.plus{background:var(--gl);color:var(--gd);border-color:var(--gm);}
+  .pd-qb:active{background:var(--gml);}
+  .pd-qn{width:44px;height:44px;border-top:2px solid var(--b);border-bottom:2px solid var(--b);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:var(--td);background:var(--w);}
+  .pd-add{flex:1;padding:12px;background:var(--gm);color:#fff;border:none;border-radius:12px;font-size:18px;font-weight:700;cursor:pointer;font-family:'Sarabun',sans-serif;transition:background .2s;-webkit-tap-highlight-color:transparent;}
+  .pd-add:hover{background:var(--gd);}
+  .pd-add:active{background:var(--gd);}
 </style>
 
 <!-- LOGIN -->
@@ -442,6 +467,28 @@
 <div class="lb-ov" id="lbOv" onclick="closeLB()">
   <button class="lb-close" onclick="closeLB()"><i class="ti ti-x"></i></button>
   <img class="lb-img" id="lbImg" src="" alt="">
+</div>
+
+<!-- PRODUCT DETAIL POPUP -->
+<div class="pd-ov" id="pdOv" onclick="closePD(event)">
+  <div class="pd-sheet">
+    <div class="pd-img-wrap" id="pdImgWrap">
+      <button class="pd-close" onclick="closePD()">✕</button>
+    </div>
+    <div class="pd-body">
+      <div class="pd-name" id="pdName"></div>
+      <div class="pd-unit" id="pdUnit"></div>
+      <div class="pd-price" id="pdPrice"></div>
+    </div>
+    <div class="pd-foot">
+      <div class="pd-qr">
+        <button class="pd-qb" id="pdMinus">−</button>
+        <div class="pd-qn" id="pdQty">0</div>
+        <button class="pd-qb plus" id="pdPlus">+</button>
+      </div>
+      <button class="pd-add" id="pdAddBtn">🛒 ใส่ตะกร้า</button>
+    </div>
+  </div>
 </div>
 
 <div class="ov" id="overlay"><div class="mo"><div id="mBody"></div></div></div>
@@ -986,18 +1033,85 @@ function cH(p,idx){
   const qty=cart[key]?cart[key].qty:0;
   _pIdx[idx]=p;
   const media=p.image_url
-    ?`<img src="${p.image_url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;" onerror="this.style.display='none';this.nextSibling.style.display='flex'">`
+    ?`<img src="${p.image_url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;" loading="lazy" onerror="this.style.display='none';this.nextSibling.style.display='flex'">`
     :'';
   const iconEl=`<i class="ti ${p.icon}" style="font-size:18px;color:${p.ic};${p.image_url?'display:none':''}"></i>`;
-  return `<div class="pc">
+  return `<div class="pc" style="cursor:pointer" onclick="openPD(${idx})">
     <div class="pi" style="background:${p.bg};overflow:hidden">${media}${iconEl}</div>
     <div class="pn">${p.name}</div><div class="pu">${p.unit}</div>
     <div class="pp">฿${p.price.toLocaleString()} <span>/ ${p.unit}</span></div>
-    <div class="qr">
+    <div class="qr" onclick="event.stopPropagation()">
       <button class="qb" data-pi="${idx}" data-d="-1">−</button>
       <div class="qn" data-qn="${idx}">${qty}</div>
       <button class="qb pl" data-pi="${idx}" data-d="1">+</button>
     </div></div>`;
+}
+
+// PRODUCT DETAIL POPUP
+let _pdIdx=null;
+function openPD(idx){
+  const p=_pIdx[idx];if(!p)return;
+  _pdIdx=idx;
+  const key=p.name+'||'+p.unit;
+  const qty=cart[key]?cart[key].qty:0;
+  // รูปภาพ
+  const wrap=document.getElementById('pdImgWrap');
+  // เคลียร์ของเดิม (เก็บปุ่มปิดไว้)
+  const closeBtn=wrap.querySelector('.pd-close');
+  wrap.innerHTML='';
+  wrap.appendChild(closeBtn);
+  if(p.image_url){
+    wrap.style.background=p.bg;
+    const img=document.createElement('img');
+    img.src=p.image_url;
+    img.alt=p.name;
+    img.style.cssText='width:100%;height:100%;object-fit:cover;cursor:zoom-in;';
+    img.onclick=()=>openLB(p.image_url);
+    img.onerror=()=>{img.remove();addNoImg(wrap,p);};
+    wrap.appendChild(img);
+  }else{
+    wrap.style.background=p.bg;
+    addNoImg(wrap,p);
+  }
+  document.getElementById('pdName').textContent=p.name;
+  document.getElementById('pdUnit').textContent=p.unit;
+  document.getElementById('pdPrice').innerHTML=`฿${p.price.toLocaleString()} <span>/ ${p.unit}</span>`;
+  document.getElementById('pdQty').textContent=qty;
+  // ปุ่ม +/−
+  document.getElementById('pdMinus').onclick=()=>pdChQ(-1);
+  document.getElementById('pdPlus').onclick=()=>pdChQ(1);
+  document.getElementById('pdAddBtn').onclick=()=>{
+    const p2=_pIdx[_pdIdx];if(!p2)return;
+    const k=p2.name+'||'+p2.unit;
+    const curQty=Number(document.getElementById('pdQty').textContent)||1;
+    if(!cart[k])cart[k]={qty:0,name:p2.name,unit:p2.unit,price:p2.price};
+    cart[k].qty+=curQty;
+    updBtn();syncQ();closePD();
+    const t=document.createElement('div');t.className='toast-h';
+    t.textContent=`✓ เพิ่ม ${p2.name} ลงตะกร้าแล้ว`;
+    document.body.appendChild(t);setTimeout(()=>t.remove(),2200);
+  };
+  document.getElementById('pdOv').classList.add('show');
+}
+
+function addNoImg(wrap,p){
+  const EMOJI={'ti-pill':'💊','ti-lungs':'🤧','ti-stethoscope':'🩺','ti-shield-check':'🛡️','ti-bottle':'🧴','ti-flask':'⚗️','ti-droplet':'💧','ti-band-aid':'🩹','ti-eye':'👁️','ti-roll':'🧻','ti-mask':'😷','ti-hand-stop':'🧤','ti-circle':'🔵','ti-first-aid-kit':'🏥'};
+  const d=document.createElement('div');
+  d.className='pd-no-img';
+  d.textContent=EMOJI[p.icon]||'💊';
+  wrap.appendChild(d);
+}
+
+function pdChQ(d){
+  const el=document.getElementById('pdQty');
+  const cur=Number(el.textContent)||0;
+  el.textContent=Math.max(0,cur+d);
+}
+
+function closePD(e){
+  if(e&&e.target!==document.getElementById('pdOv'))return;
+  document.getElementById('pdOv').classList.remove('show');
+  _pdIdx=null;
 }
 
 function chQ(idx,d){
